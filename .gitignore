@@ -5,3 +5,5 @@ obj
 *.zip
 *.lscache
 .vs
+*.code-workspace
+Test.*

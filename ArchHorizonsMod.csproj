@@ -2,9 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <AssemblyName>BossMod</AssemblyName>
-    <Product>Bossfight Mod</Product>
-    <Version>0.0.1</Version>
+    <AssemblyName>ArchHorizonsMod</AssemblyName>
+    <Product>Architect's Horizons Mod</Product>
+    <Version>1.0.0</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <RestoreAdditionalProjectSources>
@@ -12,7 +12,7 @@
       https://nuget.bepinex.dev/v3/index.json;
       https://nuget.samboy.dev/v3/index.json
     </RestoreAdditionalProjectSources>
-    <RootNamespace>BossMod</RootNamespace>
+    <RootNamespace>ArchHorizonsMod</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,6 +23,9 @@
     </Reference>
     <Reference Include="CoreModule">
       <HintPath>..\lib\Public\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="ArchEmperorLib">
+      <HintPath>..\lib\ArchEmperorLib.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine">
       <HintPath>..\lib\Public\UnityEngine.dll</HintPath>
@@ -72,8 +75,8 @@
     <Reference Include="FusionRuntime">
       <HintPath>..\lib\Public\Fusion.Runtime.dll</HintPath>
     </Reference>
-    <Reference Include="Crest">
-      <HintPath>..\lib\Public\Crest.dll</HintPath>
+    <Reference Include="FusionUnity">
+      <HintPath>..\lib\Public\Fusion.Unity.dll</HintPath>
     </Reference>
     <Reference Include="DOTween">
       <HintPath>..\lib\Public\DOTween.dll</HintPath>
@@ -89,6 +92,12 @@
     </Reference>
     <Reference Include="UniverseLib">
       <HintPath>..\lib\UniverseLib.BIE.IL2CPP.Interop.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityResourceManager">
+      <HintPath>..\lib\Public\Unity.ResourceManager.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityAddressables">
+      <HintPath>..\lib\Public\Unity.Addressables.dll</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
