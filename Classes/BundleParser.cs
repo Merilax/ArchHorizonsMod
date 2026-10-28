@@ -28,7 +28,7 @@ public class BundleParser
 	public static Dictionary<int, List<int>> BundleIDtoGPIDs = []; // Bundle ID : [GP IDs]
 	public static Dictionary<int, GrandprixDef> GPIDtoGPDef = []; //  GP ID : GP Def
 	public static Dictionary<int, ModDataStructs.CustomGPData> GPIDtoCustomGPData = []; //  GP ID : GP Def
-	public static Dictionary<string, int> modTrackPlaceToId = new()
+	public static Dictionary<string, int> modTrackPlaceIDs = new()
 	{
 		{"Grass_Day", 0},
 		{"Grass_Night", 1},
@@ -52,7 +52,7 @@ public class BundleParser
 		{"Sky_Racing02", 19}, // Buffer, unused.
 		{"Test", 20}, // Buffer, unused.	
 	};
-	public static Dictionary<string, int> modTrackLandToId = new()
+	public static Dictionary<string, int> modTrackLandIDs = new()
 	{
 		{"TestPlay", 0},
 		{"Grass", 1},
@@ -63,7 +63,7 @@ public class BundleParser
 		{"Moon", 6},
 		{"Labo", 7},
 	};
-	public static Dictionary<string, int> circuitImageToId = new()
+	public static Dictionary<string, int> circuitImageIDs = new()
 	{
 		{"c01", 0},
 		{"c02", 1},
@@ -76,7 +76,7 @@ public class BundleParser
 		{"c09", 8},
 		{"Unused_Test", 9},
 	};
-	public static Dictionary<string, int> fieldImageToId = new()
+	public static Dictionary<string, int> fieldImageIDs = new()
 	{
 		{"Lands_Grass_Day", 0},
 		{"Lands_Canyon", 1},
@@ -111,7 +111,7 @@ public class BundleParser
 					continue;
 				}
 				string jsonStr = File.ReadAllText(Path.Combine(folder, "manifest.json"));
-				ModDataStructs.ModDefinition modDef = JsonSerializer.Deserialize<ModDataStructs.ModDefinition>(jsonStr, new JsonSerializerOptions() { IncludeFields = true });
+				ModDataStructs.ImportedModDefinition modDef = JsonSerializer.Deserialize<ModDataStructs.ImportedModDefinition>(jsonStr, new JsonSerializerOptions() { IncludeFields = true });
 
 				if (!File.Exists(Path.Combine(folder, modDef.bundleName + "_assets")))
 				{
@@ -128,7 +128,7 @@ public class BundleParser
 					Plugin.Log.LogError("Manifest error: bundleName is empty.");
 					continue;
 				}
-				if (modDef.grandprixDefs == null || modDef.grandprixDefs.Count <= 0)
+				if (modDef.customGPs == null || modDef.customGPs.Count <= 0)
 				{
 					Plugin.Log.LogError("Manifest error: grandprixDefs is empty.");
 					continue;
@@ -141,7 +141,7 @@ public class BundleParser
 				Plugin.Log.LogError(ex);
 			}
 		}
-		
+
 		Plugin.LogInfo($"Detected {loadedModRecords.Count} circuit bundles.");
 
 		return true;
@@ -179,13 +179,15 @@ public class BundleParser
 			}
 			try
 			{
+				// Check integrity.
+
 				if (!File.Exists(Path.Combine(folder, "manifest.json")))
 				{
 					Plugin.Log.LogError("Could not find a manifest.json file in mod directory: " + folder);
 					continue;
 				}
 				string jsonStr = File.ReadAllText(Path.Combine(folder, "manifest.json"));
-				ModDataStructs.ModDefinition modDef = JsonSerializer.Deserialize<ModDataStructs.ModDefinition>(jsonStr, new JsonSerializerOptions() { IncludeFields = true });
+				ModDataStructs.ImportedModDefinition modDef = JsonSerializer.Deserialize<ModDataStructs.ImportedModDefinition>(jsonStr, new JsonSerializerOptions() { IncludeFields = true });
 
 				if (!File.Exists(Path.Combine(folder, modDef.bundleName + "_assets")))
 				{
@@ -202,16 +204,13 @@ public class BundleParser
 					Plugin.Log.LogError("Manifest error: bundleName is empty.");
 					continue;
 				}
-				if (modDef.grandprixDefs == null || modDef.grandprixDefs.Count <= 0)
+				if (modDef.customGPs == null || modDef.customGPs.Count <= 0)
 				{
 					Plugin.Log.LogError("Manifest error: grandprixDefs is empty.");
 					continue;
 				}
 
-				// Register map assets
-
-				// var sceneBundle = UniverseLib.AssetBundle.LoadFromFile(Path.Combine(folder, modDef.bundleName + "_scenes"));
-				// UniverseLib.AssetBundle.LoadFromFile(Path.Combine(folder, modDef.bundleName + "_assets"));
+				// Register Addressables.
 
 				var map = new ResourceLocationMap($"{modDef.bundleName}ContentCatalogAssets", 300);
 				var bundleLoc = new ResourceLocationBase(
@@ -233,29 +232,15 @@ public class BundleParser
 				mapScenes.Add(modDef.bundleName + "_scenes", sceneLoc.Cast<IResourceLocation>());
 				var sceneDeps = new Il2CppReferenceArray<IResourceLocation>([sceneLoc.Cast<IResourceLocation>()]);//bundleLoc.Cast<IResourceLocation>(), 
 
-				// Add scene thumbnails
+				// Start parsing imported Mod Defs.
 
-				Dictionary<string, int> circuitThumbIndexes = [];
-				foreach (var item in modDef.circuitThumbs)
+				ModDataStructs.ModDefinition parsedModDef = new()
 				{
-					RegisterAsset<Sprite>($"{modIdCount}_thumb_{item.name}", item.path, typeof(BundledAssetProvider), map, deps);
-					circuitThumbIndexes.Add(item.name, MatchmakingUI.ins.fieldImages.Count);
-					fieldImageToId.Add(item.name, fieldImageToId.Count);
-
-					var allImages = SinglePlayData.AllCircuitsImgData.ToList();
-					allImages.Add(new() { offset = new(0, 0), rot = 0, scale = 1024 });
-					SinglePlayData.AllCircuitsImgData = new(allImages.ToArray());
-				}
-
-				// Add circuit layout images
-
-				Dictionary<string, int> circuitTrackIndexes = [];
-				foreach (var item in modDef.circuitTracks)
-				{
-					RegisterAsset<Sprite>($"{modIdCount}_track_{item.name}", item.path, typeof(BundledAssetProvider), map, deps);
-					circuitTrackIndexes.Add(item.name, UI_SinglePlay.ins.CircuitSprites.Count);
-					circuitImageToId.Add(item.name, circuitImageToId.Count);
-				}
+					bundleName = modDef.bundleName,
+					bundleVersion = modDef.bundleVersion,
+					circuitThumbs = modDef.circuitThumbs,
+					circuitTracks = modDef.circuitTracks
+				};
 
 				// Register GP Land and Places with an unique ID each.
 
@@ -263,6 +248,7 @@ public class BundleParser
 				List<string> translatedLandNames = [];
 				foreach (var item in modDef.landNameTranslations)
 				{
+					Plugin.LogInfo(item);
 					var landNameTranslation = JsonSerializer.Deserialize<ModDataStructs.NameTranslation>(item, new JsonSerializerOptions() { IncludeFields = true });
 					landNameTranslations.Add(landNameTranslation);
 				}
@@ -275,96 +261,128 @@ public class BundleParser
 					placeNameTranslations.Add(placeNameTranslation);
 				}
 
+				// Add circuit layout images
+
+				Dictionary<string, int> circuitTrackIndexes = [];
+				foreach (var item in modDef.circuitTracks)
+				{
+					RegisterAsset<Sprite>($"{modIdCount}_track_{item.name}", item.path, typeof(BundledAssetProvider), map, deps);
+					circuitTrackIndexes.Add(item.name, UI_SinglePlay.ins.CircuitSprites.Count);
+					circuitImageIDs.Add(item.name, circuitImageIDs.Count);
+				}
+
+				// Prepare Lands
+
+				Dictionary<string, int> circuitThumbIndexes = [];
+				foreach (var item in modDef.landGroups)
+				{
+					Plugin.LogInfo(item);
+					var landGroup = JsonSerializer.Deserialize<ModDataStructs.LandGroup>(item, new JsonSerializerOptions() { IncludeFields = true });
+					parsedModDef.landGroups.Add(landGroup);
+					if (!modTrackLandIDs.ContainsKey(landGroup.land))
+					{
+						modTrackLandIDs.Add(landGroup.land, modTrackLandIDs.Count);
+
+						landNameTranslations.DoIf(
+							(e) => e.key == landGroup.land && !translatedLandNames.Contains(e.key),
+							(e) => LandNameTranslations.Add(modTrackLandIDs[landGroup.land], e.translatedName)
+						);
+
+						RegisterAsset<Sprite>($"{modIdCount}_thumb_{landGroup.imageKey}", modDef.circuitThumbs.Find(e => e.name == landGroup.imageKey).path, typeof(BundledAssetProvider), map, deps);
+						circuitThumbIndexes.Add(landGroup.imageKey, MatchmakingUI.ins.fieldImages.Count);
+						fieldImageIDs.Add(landGroup.imageKey, fieldImageIDs.Count);
+
+						var allImages = SinglePlayData.AllCircuitsImgData.ToList();
+						allImages.Add(new() { offset = new(0, 0), rot = 0, scale = 1024 });
+						SinglePlayData.AllCircuitsImgData = new(allImages.ToArray());
+					}
+				}
+
 				BundleIDtoGPIDs.Add(modIdCount, []);
-				foreach (var item in modDef.grandprixDefs)
+				foreach (var item in modDef.customGPs)
 				{
 					var gpdef = JsonSerializer.Deserialize<ModDataStructs.CustomGPData>(item, new JsonSerializerOptions() { IncludeFields = true });
 
-					ModDataStructs.ModdedMatchData[] stages = gpdef._Stages.Concat(gpdef._Stages_Hard).ToArray();
+					ModDataStructs.ModdedMatchData[] stages = gpdef.stages.Concat(gpdef.stagesHard).ToArray();
 					foreach (var stage in stages)
 					{
-						if (!modTrackLandToId.ContainsKey(stage._Land))
+						if (!modTrackPlaceIDs.ContainsKey(stage.placeKey))
 						{
-							if (!modTrackLandToId.ContainsKey(stage._Land))
-								modTrackLandToId.Add(stage._Land, modTrackLandToId.Count);
-
-							landNameTranslations.DoIf(
-								(e) => e.key == stage._Land && !translatedLandNames.Contains(e.key),
-								(e) => LandNameTranslations.Add(modTrackLandToId[stage._Land], e.translatedName)
-							);
-						}
-
-						if (!modTrackPlaceToId.ContainsKey(stage._Place))
-						{
-							if (!circuitThumbIndexes.ContainsKey(stage.CircuitThumbnail) || !circuitTrackIndexes.ContainsKey(stage.CircuitTrack))
+							if (!circuitTrackIndexes.ContainsKey(stage.imageKey))
 							{
-								Plugin.Log.LogError($"GrandPrix definition {gpdef._Name} contains an invalid thumbnail or track name.");
+								Plugin.Log.LogError($"GrandPrix definition {gpdef.GPName} contains an invalid thumbnail or track name.");
 								continue;
 							}
 
-							modTrackPlaceToId.Add(stage._Place, modTrackPlaceToId.Count);
+							modTrackPlaceIDs.Add(stage.placeKey, modTrackPlaceIDs.Count);
 
 							// TODO Why does non-0 for circuitLayout cause the track to not load? // circuitLayout -> fieldImageToId[stage.CircuitThumbnail], OR fieldImageToId[stage.CircuitThumbnail] + 2??
-							AddCustomPlace(stage._Place, modTrackPlaceToId[stage._Place], 0, circuitImageToId[stage.CircuitTrack], new(0, 0), 100);
+							AddCustomPlace(stage.placeKey, modTrackPlaceIDs[stage.placeKey], 0, circuitImageIDs[stage.imageKey], new(0, 0), 100);
 
-							string scenePath = $"Assets/{modDef.bundleName}/Maps/{stage._Place}/{stage._Place}.unity";
-							RegisterAsset<SceneInstance>(stage._Place, scenePath, typeof(BundledAssetProvider), mapScenes, sceneDeps);
+							string scenePath = $"Assets/{modDef.bundleName}/Maps/{stage.placeKey}/{stage.placeKey}.unity";
+							RegisterAsset<SceneInstance>(stage.placeKey, scenePath, typeof(BundledAssetProvider), mapScenes, sceneDeps);
 							RegisterAsset<SceneInstance>(scenePath, scenePath, typeof(BundledAssetProvider), mapScenes, sceneDeps);
 							AddressableSceneInjection.ScenePaths.Add(scenePath);
-							MatchManager.ins.networkScenes.Add(stage._Place, SceneRef.FromPath(scenePath));
+							MatchManager.ins.networkScenes.Add(stage.placeKey, SceneRef.FromPath(scenePath));
 
 							placeNameTranslations.DoIf(
-								(e) => e.key == stage._Place && !translatedPlaceNames.Contains(e.key),
-								(e) => PlaceNameTranslations.Add(modTrackPlaceToId[stage._Place], e.translatedName)
+								(e) => e.key == stage.placeKey && !translatedPlaceNames.Contains(e.key),
+								(e) => PlaceNameTranslations.Add(modTrackPlaceIDs[stage.placeKey], e.translatedName)
 							);
 						}
 
-						if (stage._Rules._Type == (GameVariable.MatchType)4 && !CustomMatchData.CustomFields_Battle.Any((e) => e._NameKey == modTrackPlaceToId[stage._Place]))
+						if (stage.rules._Type == (GameVariable.MatchType)4 && !CustomMatchData.CustomFields_Battle.Any((e) => e._NameKey == modTrackPlaceIDs[stage.placeKey]))
 						{
 							var customFieldData = CustomMatchData.CustomFields_Battle.ToList();
 							customFieldData.Add(new()
 							{
-								_NameKey = modTrackPlaceToId[stage._Place],
-								_CircuitSpriteNumber = circuitImageToId[stage.CircuitTrack] + 1,
-								_Land = (VenueData.Landscape)modTrackLandToId[stage._Land],
-								_Place = (SinglePlayData.MatchPlace)modTrackPlaceToId[stage._Place],
-								_Time = stage._Time,
-								_Suffix = 0, // Adds a number to the map name (Plains 1, Plains 2...)
+								_NameKey = modTrackPlaceIDs[stage.placeKey], // ok (-1 is Labo "???")
+								_CircuitSpriteNumber = circuitImageIDs[stage.imageKey] + 1, // There's a missing circuitImage, so we inject it earlier.
+								_Land = (VenueData.Landscape)modTrackLandIDs[ModDataStructs.GetLandByPlaceKey(parsedModDef.landGroups, stage.placeKey)], // Same here. This way we don't need a -1 here, which would set the GP to the wrong Land.
+								_Place = (SinglePlayData.MatchPlace)modTrackPlaceIDs[stage.placeKey], // Again.
+								_Time = stage.time,
+								_Suffix = 0, // Adds a number to the map name (Plains 1, Plains 2...) // TODO, find a way to automate this.
 							});
 							CustomMatchData.CustomFields_Battle = customFieldData.ToArray();
 						}
 						// Must be duplicated to avoid pointer magic
-						if (stage._Rules._Type != (GameVariable.MatchType)4 && !CustomMatchData.CustomFields_Racing.Any((e) => e._NameKey == modTrackPlaceToId[stage._Place]))
+						if (stage.rules._Type != (GameVariable.MatchType)4 && !CustomMatchData.CustomFields_Racing.Any((e) => e._NameKey == modTrackPlaceIDs[stage.placeKey]))
 						{
 							var customFieldData = CustomMatchData.CustomFields_Racing.ToList();
 							customFieldData.Add(new()
 							{
-								_NameKey = modTrackPlaceToId[stage._Place], // ok (-1 is Labo "???")
-								_CircuitSpriteNumber = circuitImageToId[stage.CircuitTrack] + 1, // There's a missing circuitImage, so we inject it earlier.
-								_Land = (VenueData.Landscape)modTrackLandToId[stage._Land], // Same here. This way we don't need a -1 here, which would set the GP to the wrong Land.
-								_Place = (SinglePlayData.MatchPlace)modTrackPlaceToId[stage._Place], // Again.
-								_Time = stage._Time,
+								_NameKey = modTrackPlaceIDs[stage.placeKey],
+								_CircuitSpriteNumber = circuitImageIDs[stage.imageKey] + 1,
+								_Land = (VenueData.Landscape)modTrackLandIDs[ModDataStructs.GetLandByPlaceKey(parsedModDef.landGroups, stage.placeKey)],
+								_Place = (SinglePlayData.MatchPlace)modTrackPlaceIDs[stage.placeKey],
+								_Time = stage.time,
 								_Suffix = 0,
 							});
 							CustomMatchData.CustomFields_Racing = customFieldData.ToArray();
 						}
 					}
-					gpdef._Id = GPID;
+					gpdef.id = GPID;
 					GPDescriptionTranslations.Add(GPID + 1, gpdef.translatedDescription);
 
 					List<GrandprixDef> gpDatas = MatchManager.ins._GrandprixData.grandprixDatas.ToList();
-					var grandprixDef = ModDataStructs.ParseGP(gpdef, modTrackLandToId, modTrackPlaceToId);
+					var grandprixDef = ModDataStructs.ParseGP(parsedModDef.landGroups, gpdef, modTrackLandIDs, modTrackPlaceIDs);
 					gpDatas.Add(grandprixDef);
 					MatchManager.ins._GrandprixData.grandprixDatas = new Il2CppReferenceArray<GrandprixDef>(gpDatas.ToArray());
+
+					// gpdef.GPDef = grandprixDef;
 
 					GPIDtoBundleName.Add(GPID, modDef.bundleName);
 					GPIDtoGPDef.Add(GPID, grandprixDef);
 					GPIDtoCustomGPData.Add(GPID, gpdef);
 					BundleIDtoGPIDs[modIdCount].Add(GPID);
 					GPID++;
+				
+				
 				}
 
-				pendingLoadModDefs.Add(modIdCount, modDef);
+				BundleIDtoGPIDs[modIdCount].Sort();
+
+				pendingLoadModDefs.Add(modIdCount, parsedModDef);
 				modIdCount++;
 
 				Addressables.AddResourceLocator(map.Cast<IResourceLocator>());
@@ -380,11 +398,7 @@ public class BundleParser
 			}
 		}
 
-		// var tempScene = Addressables.LoadSceneAsync("D72", UnityEngine.SceneManagement.LoadSceneMode.Additive, false).WaitForCompletion();
-		// tempScene.ReleaseHandleOnCompletion();
-		// tempScene.WaitForCompletion();
-		// tempScene = null;
-		// Addressables.UnloadSceneAsync(tempScene);
+		// Load image assets.
 
 		modIdCount = 10;
 		foreach (var modDef in pendingLoadModDefs)

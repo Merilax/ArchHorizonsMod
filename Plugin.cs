@@ -62,7 +62,7 @@ public class Main
 	[HarmonyPatch(typeof(SceneManager), nameof(SceneManager.LoadSceneAsync), [typeof(string), typeof(LoadSceneMode)])]
 	public static void LoadSceneAsync(string sceneName, ref AsyncOperation __result, ref bool __runOriginal)
 	{
-		if (BundleParser.modTrackPlaceToId.ContainsKey(sceneName))
+		if (BundleParser.modTrackPlaceIDs.ContainsKey(sceneName))
 		{
 			__runOriginal = false;
 			__result = Addressables.LoadSceneAsync(sceneName, LoadSceneMode.Additive, activateOnLoad: false).WaitForCompletion().m_Operation;

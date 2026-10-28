@@ -70,15 +70,18 @@ public class UI
 			campaignBtn.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = bundleIdDef.Value.bundleName;
 			campaignBtn.onClick.AddListener((Action)(() => { bundleObj.transform.GetChild(1).gameObject.active = !bundleObj.transform.GetChild(1).gameObject.active; }));
 
-			bool odd = false;
+			List<GrandprixDef> gpDefs = [];
 			foreach (var GPUUID in BundleParser.BundleIDtoGPIDs[bundleIdDef.Key])
+				gpDefs.Add(BundleParser.GPIDtoGPDef[GPUUID]);
+			gpDefs.Sort((a, b) => a._Difficulty.CompareTo(b._Difficulty));
+
+			bool odd = false;
+			foreach (var gpDef in gpDefs)
 			{
-				// for (int i = 0; i < 5; i++) { var GPUUID = BundleParser.bundleGPUUIDs[10][0];
 				// GP row
 				GameObject gpObj = GameObject.Instantiate(Plugin.assets.LoadAsset<GameObject>($"ArchHorizonsGP_{(odd ? "L" : "R")}"), bundleObj.transform.GetChild(1));
 
 				// GP data
-				var gpDef = BundleParser.GPIDtoGPDef[GPUUID];
 				gpObj.transform.GetChild(1).GetChild(1).GetComponent<TextMeshProUGUI>().text = gpDef._Name;
 				gpObj.transform.GetChild(1).GetChild(2).GetComponent<TextMeshProUGUI>().text = $"[ Class {gpDef._Difficulty} ]";
 
@@ -120,7 +123,7 @@ public class UI
 	[HarmonyPatch(typeof(MatchmakingUI), nameof(MatchmakingUI.ShowCreateSession))]
 	public static void MatchmakingUI_EnableScrollingFieldSelect(MatchmakingUI __instance)
 	{
-		__instance.Create_FieldType?.transform.GetChild(2).GetComponent<ScrollRect>()?.vertical = true;
+		__instance.Create_FieldType.transform.GetChild(2).GetComponent<ScrollRect>().vertical = true;
 	}
 
 	[HarmonyPostfix]
