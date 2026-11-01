@@ -52,6 +52,7 @@ public class UI
 		CustomGPContainer = GameObject.Instantiate(Plugin.assets.LoadAsset<GameObject>("ArchHorizonsCustomGPs"));
 		CustomGPContainer.transform.SetParent(GPButtonContainer.transform.parent);
 		CustomGPContainer.active = false;
+		ArchEmperorLib.Utils.RescaleUI(CustomGPContainer);
 
 		var rect = CustomGPContainer.GetComponent<RectTransform>();
 		rect.pivot = new(0, .5f);
@@ -65,6 +66,7 @@ public class UI
 			// Bundle container for GPs
 			var bundleObj = GameObject.Instantiate(Plugin.assets.LoadAsset<GameObject>("ArchHorizonsBundle"));
 			bundleObj.transform.SetParent(CustomGPContainer.transform.GetChild(0).GetChild(0).GetChild(0));
+			ArchEmperorLib.Utils.RescaleUI(bundleObj);
 
 			Button campaignBtn = bundleObj.transform.GetChild(0).GetComponent<Button>();
 			campaignBtn.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = bundleIdDef.Value.bundleName;
@@ -80,6 +82,7 @@ public class UI
 			{
 				// GP row
 				GameObject gpObj = GameObject.Instantiate(Plugin.assets.LoadAsset<GameObject>($"ArchHorizonsGP_{(odd ? "L" : "R")}"), bundleObj.transform.GetChild(1));
+				ArchEmperorLib.Utils.RescaleUI(gpObj);
 
 				// GP data
 				gpObj.transform.GetChild(1).GetChild(1).GetComponent<TextMeshProUGUI>().text = gpDef._Name;
