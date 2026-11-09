@@ -40,8 +40,8 @@ public class UI
 			viewingCustomGPs = !viewingCustomGPs;
 			GPButtonContainer.active = !viewingCustomGPs;
 			CustomGPContainer.active = viewingCustomGPs;
-			if (viewingCustomGPs) customBtn.GetComponentInChildren<TextMeshProUGUI>().text = "Custom GPs";
-			else customBtn.GetComponentInChildren<TextMeshProUGUI>().text = "Vanilla GPs";
+			if (viewingCustomGPs) customBtn.GetComponentInChildren<TextMeshProUGUI>().text = "Vanilla GPs";
+			else customBtn.GetComponentInChildren<TextMeshProUGUI>().text = "Custom GPs";
 		}));
 
 		SetupButtons();
@@ -153,7 +153,7 @@ public class UI
 				key = key.Insert(6, "H");
 
 			int rank = DataManager.ins.GetSinglePlayResult(key);
-			Plugin.LogInfo(key + " " + rank);
+			Plugin.Log.LogDebug(key + " " + rank);
 			Image bg = GPDefButton.Value?.transform.GetChild(0).GetChild(0).GetComponent<Image>();
 			if (bg == null) continue;
 			switch (rank)

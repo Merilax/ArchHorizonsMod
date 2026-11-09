@@ -28,6 +28,7 @@ public class BundleParser
 	public static Dictionary<int, List<int>> BundleIDtoGPIDs = []; // Bundle ID : [GP IDs]
 	public static Dictionary<int, GrandprixDef> GPIDtoGPDef = []; //  GP ID : GP Def
 	public static Dictionary<int, ModDataStructs.CustomGPData> GPIDtoCustomGPData = []; //  GP ID : GP Def
+	private static Dictionary<string, SceneRef> sceneNameToPath = [];
 	public static Dictionary<string, int> modTrackPlaceIDs = new()
 	{
 		{"Grass_Day", 0},
@@ -149,25 +150,18 @@ public class BundleParser
 
 	public static bool ParseBundles()
 	{
-		if (bundlesParsed) return false;
+		if (bundlesParsed)
+		{
+			InjectAssets();
+			return false;
+		}
+
 		CheckFolderIntegrity();
 
 		string trackFolder = Path.Combine(Paths.PluginPath, "ArchHorizonsMod", "AddonBundles");
 
 		int modIdCount = 10; // GP ID. Each bundle gets its own ID. Difficulty is then used to sort the GPs per-bundle.
 		int GPID = 100;
-
-		{
-			var allSprites = MatchmakingUI.ins.fieldImages.ToList();
-			allSprites.Add(null);
-			MatchmakingUI.ins.fieldImages = new(allSprites.ToArray());
-			allSprites = MatchmakingUI.ins.circuitImages.ToList();
-			allSprites.Add(null);
-			MatchmakingUI.ins.circuitImages = new(allSprites.ToArray());
-			allSprites = UI_SinglePlay.ins.CircuitSprites.ToList();
-			allSprites.Add(null);
-			UI_SinglePlay.ins.CircuitSprites = new(allSprites.ToArray());
-		}
 
 		foreach (var folder in System.IO.Directory.EnumerateDirectories(trackFolder))
 		{
@@ -248,7 +242,6 @@ public class BundleParser
 				List<string> translatedLandNames = [];
 				foreach (var item in modDef.landNameTranslations)
 				{
-					Plugin.LogInfo(item);
 					var landNameTranslation = JsonSerializer.Deserialize<ModDataStructs.NameTranslation>(item, new JsonSerializerOptions() { IncludeFields = true });
 					landNameTranslations.Add(landNameTranslation);
 				}
@@ -267,16 +260,16 @@ public class BundleParser
 				foreach (var item in modDef.circuitTracks)
 				{
 					RegisterAsset<Sprite>($"{modIdCount}_track_{item.name}", item.path, typeof(BundledAssetProvider), map, deps);
-					circuitTrackIndexes.Add(item.name, UI_SinglePlay.ins.CircuitSprites.Count);
+					circuitTrackIndexes.Add(item.name, UI_SinglePlay.ins.CircuitSprites.Count + 1);
 					circuitImageIDs.Add(item.name, circuitImageIDs.Count);
 				}
 
 				// Prepare Lands
 
-				Dictionary<string, int> circuitThumbIndexes = [];
+				// Dictionary<string, int> circuitThumbIndexes = [];
 				foreach (var item in modDef.landGroups)
 				{
-					Plugin.LogInfo(item);
+					Plugin.Log.LogDebug(item);
 					var landGroup = JsonSerializer.Deserialize<ModDataStructs.LandGroup>(item, new JsonSerializerOptions() { IncludeFields = true });
 					parsedModDef.landGroups.Add(landGroup);
 					if (!modTrackLandIDs.ContainsKey(landGroup.land))
@@ -289,12 +282,12 @@ public class BundleParser
 						);
 
 						RegisterAsset<Sprite>($"{modIdCount}_thumb_{landGroup.imageKey}", modDef.circuitThumbs.Find(e => e.name == landGroup.imageKey).path, typeof(BundledAssetProvider), map, deps);
-						circuitThumbIndexes.Add(landGroup.imageKey, MatchmakingUI.ins.fieldImages.Count);
+						// circuitThumbIndexes.Add(landGroup.imageKey, MatchmakingUI.ins.fieldImages.Count);
 						fieldImageIDs.Add(landGroup.imageKey, fieldImageIDs.Count);
 
-						var allImages = SinglePlayData.AllCircuitsImgData.ToList();
-						allImages.Add(new() { offset = new(0, 0), rot = 0, scale = 1024 });
-						SinglePlayData.AllCircuitsImgData = new(allImages.ToArray());
+						// var allImages = SinglePlayData.AllCircuitsImgData.ToList();
+						// allImages.Add(new() { offset = new(0, 0), rot = 0, scale = 1024 });
+						// SinglePlayData.AllCircuitsImgData = new(allImages.ToArray());
 					}
 				}
 
@@ -323,7 +316,10 @@ public class BundleParser
 							RegisterAsset<SceneInstance>(stage.placeKey, scenePath, typeof(BundledAssetProvider), mapScenes, sceneDeps);
 							RegisterAsset<SceneInstance>(scenePath, scenePath, typeof(BundledAssetProvider), mapScenes, sceneDeps);
 							AddressableSceneInjection.ScenePaths.Add(scenePath);
-							MatchManager.ins.networkScenes.Add(stage.placeKey, SceneRef.FromPath(scenePath));
+
+							var scenePathRef = SceneRef.FromPath(scenePath);
+							// MatchManager.ins.networkScenes.Add(stage.placeKey, scenePathRef);
+							sceneNameToPath.Add(stage.placeKey, scenePathRef);
 
 							placeNameTranslations.DoIf(
 								(e) => e.key == stage.placeKey && !translatedPlaceNames.Contains(e.key),
@@ -364,10 +360,10 @@ public class BundleParser
 					gpdef.id = GPID;
 					GPDescriptionTranslations.Add(GPID + 1, gpdef.translatedDescription);
 
-					List<GrandprixDef> gpDatas = MatchManager.ins._GrandprixData.grandprixDatas.ToList();
+					// List<GrandprixDef> gpDatas = MatchManager.ins._GrandprixData.grandprixDatas.ToList();
 					var grandprixDef = ModDataStructs.ParseGP(parsedModDef.landGroups, gpdef, modTrackLandIDs, modTrackPlaceIDs);
-					gpDatas.Add(grandprixDef);
-					MatchManager.ins._GrandprixData.grandprixDatas = new Il2CppReferenceArray<GrandprixDef>(gpDatas.ToArray());
+					// gpDatas.Add(grandprixDef);
+					// MatchManager.ins._GrandprixData.grandprixDatas = new Il2CppReferenceArray<GrandprixDef>(gpDatas.ToArray());
 
 					// gpdef.GPDef = grandprixDef;
 
@@ -376,19 +372,14 @@ public class BundleParser
 					GPIDtoCustomGPData.Add(GPID, gpdef);
 					BundleIDtoGPIDs[modIdCount].Add(GPID);
 					GPID++;
-				
-				
 				}
 
 				BundleIDtoGPIDs[modIdCount].Sort();
 
 				pendingLoadModDefs.Add(modIdCount, parsedModDef);
-				modIdCount++;
-
 				Addressables.AddResourceLocator(map.Cast<IResourceLocator>());
 				Addressables.AddResourceLocator(mapScenes.Cast<IResourceLocator>());
-
-				// sceneBundle.Unload(false); // false keeps already-loaded assets alive
+				modIdCount++;
 			}
 			catch (Exception ex)
 			{
@@ -398,9 +389,40 @@ public class BundleParser
 			}
 		}
 
+		InjectAssets();
+
+		Plugin.LogInfo($"Loaded {loadedModDefs.Count} circuit bundles.");
+		bundlesParsed = true;
+		return true;
+	}
+
+	public static bool InjectAssets()
+	{
+		loadedModDefs.Clear();
+
+		// Inject instance data.
+
+		List<GrandprixDef> gpDatas = MatchManager.ins._GrandprixData.grandprixDatas.ToList();
+		foreach (var gpdef in GPIDtoGPDef)
+			gpDatas.Add(gpdef.Value);
+		MatchManager.ins._GrandprixData.grandprixDatas = new Il2CppReferenceArray<GrandprixDef>(gpDatas.ToArray());
+
+		foreach (var scene in sceneNameToPath)
+			MatchManager.ins.networkScenes.Add(scene.Key, scene.Value);
+
 		// Load image assets.
 
-		modIdCount = 10;
+		var allSprites = MatchmakingUI.ins.fieldImages.ToList();
+		allSprites.Add(null);
+		MatchmakingUI.ins.fieldImages = new(allSprites.ToArray());
+		allSprites = MatchmakingUI.ins.circuitImages.ToList();
+		allSprites.Add(null);
+		MatchmakingUI.ins.circuitImages = new(allSprites.ToArray());
+		allSprites = UI_SinglePlay.ins.CircuitSprites.ToList();
+		allSprites.Add(null);
+		UI_SinglePlay.ins.CircuitSprites = new(allSprites.ToArray());
+
+		int modIdCount = 10;
 		foreach (var modDef in pendingLoadModDefs)
 		{
 			foreach (var item in modDef.Value.circuitThumbs)
@@ -415,7 +437,7 @@ public class BundleParser
 					Plugin.Log.LogError($"Incorrect asset path \"{item.name}\" in mod manifest: " + item.path);
 					continue;
 				}
-				var allSprites = MatchmakingUI.ins.fieldImages.ToList();
+				allSprites = MatchmakingUI.ins.fieldImages.ToList();
 				allSprites.Add(sprite);
 				MatchmakingUI.ins.fieldImages = new(allSprites.ToArray());
 			}
@@ -428,11 +450,11 @@ public class BundleParser
 					Plugin.Log.LogError($"Incorrect asset path \"{item.name}\" in mod manifest: " + item.path);
 					continue;
 				}
-				var allImages = UI_SinglePlay.ins.CircuitSprites.ToList();
-				allImages.Add(sprite);
-				UI_SinglePlay.ins.CircuitSprites = new(allImages.ToArray());
+				allSprites = UI_SinglePlay.ins.CircuitSprites.ToList();
+				allSprites.Add(sprite);
+				UI_SinglePlay.ins.CircuitSprites = new(allSprites.ToArray());
 
-				var allSprites = MatchmakingUI.ins.circuitImages.ToList();
+				allSprites = MatchmakingUI.ins.circuitImages.ToList();
 				allSprites.Add(sprite);
 				MatchmakingUI.ins.circuitImages = new(allSprites.ToArray());
 			}
@@ -441,8 +463,6 @@ public class BundleParser
 			modIdCount++;
 		}
 
-		Plugin.LogInfo($"Loaded {loadedModDefs.Count} circuit bundles.");
-		bundlesParsed = true;
 		return true;
 	}
 

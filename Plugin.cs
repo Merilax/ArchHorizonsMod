@@ -26,6 +26,7 @@ public class Plugin : BasePlugin
 	{
 		Log = BepInEx.Logging.Logger.CreateLogSource("ArchHorizonsMod");
 		var harmony = Harmony.CreateAndPatchAll(typeof(Main));
+		harmony.PatchAll(typeof(MainPatch));
 		harmony.PatchAll(typeof(UI));
 		harmony.PatchAll(typeof(AddressableSceneInjection));
 
@@ -46,18 +47,6 @@ public class Plugin : BasePlugin
 
 public class Main
 {
-	private static CreditBlock MakeCredits()
-	{
-		CreditBlock creditData = new();
-		if (Plugin.assets)
-			creditData.AddLogo(Plugin.assets.LoadAsset<Sprite>("HorizonsModLogo"));
-		creditData.AddText(CreditBlock.FONT_SIZE.TITLE, "ARCHITECT'S HORIZONS MOD");
-		creditData.AddSeparator();
-		creditData.AddText(CreditBlock.FONT_SIZE.ROLE, "DEVELOPER");
-		creditData.AddText(CreditBlock.FONT_SIZE.NORMAL, "Merilax");
-		return creditData;
-	}
-
 	[HarmonyPrefix]
 	[HarmonyPatch(typeof(SceneManager), nameof(SceneManager.LoadSceneAsync), [typeof(string), typeof(LoadSceneMode)])]
 	public static void LoadSceneAsync(string sceneName, ref AsyncOperation __result, ref bool __runOriginal)
@@ -67,17 +56,6 @@ public class Main
 			__runOriginal = false;
 			__result = Addressables.LoadSceneAsync(sceneName, LoadSceneMode.Additive, activateOnLoad: false).WaitForCompletion().m_Operation;
 		}
-	}
-
-	[HarmonyPostfix]
-	[HarmonyPatch(typeof(Scene_MainMenu), nameof(Scene_MainMenu.Start))]
-	public static void MainStart()
-	{
-		BundleParser.ParseBundles();
-		BundleParser.PopulateLocalization();
-		LocalizationSettings.add_SelectedLocaleChanged((Il2CppSystem.Action<UnityEngine.Localization.Locale>)((locale) => BundleParser.PopulateLocalization()));
-
-		ModManager.SetCredits(MyPluginInfo.PLUGIN_GUID, MakeCredits());
 	}
 
 	[HarmonyPrefix]
@@ -164,4 +142,35 @@ public class Main
 		}
 	}
 
+}
+
+public class MainPatch
+{
+	private static bool init = false;
+	private static CreditBlock MakeCredits()
+	{
+		CreditBlock creditData = new();
+		if (Plugin.assets)
+			creditData.AddLogo(Plugin.assets.LoadAsset<Sprite>("HorizonsModLogo"));
+		creditData.AddText(CreditBlock.FONT_SIZE.TITLE, "ARCHITECT'S HORIZONS MOD");
+		creditData.AddSeparator();
+		creditData.AddText(CreditBlock.FONT_SIZE.ROLE, "DEVELOPER");
+		creditData.AddText(CreditBlock.FONT_SIZE.NORMAL, "Merilax");
+		return creditData;
+	}
+
+	[HarmonyPostfix]
+	[HarmonyPatch(typeof(Scene_MainMenu), nameof(Scene_MainMenu.Start))]
+	public static void MainStart()
+	{
+		BundleParser.ParseBundles();
+		if (!init)
+		{
+			BundleParser.PopulateLocalization();
+			LocalizationSettings.add_SelectedLocaleChanged((Il2CppSystem.Action<UnityEngine.Localization.Locale>)((locale) => BundleParser.PopulateLocalization()));
+
+			ModManager.SetCredits(MyPluginInfo.PLUGIN_GUID, MakeCredits());
+		}
+		init = true;
+	}
 }
