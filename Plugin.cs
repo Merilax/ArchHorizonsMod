@@ -39,7 +39,7 @@ public class Plugin : BasePlugin
 			if (assets == null) Log.LogError("Failed to load assets!");
 		}
 
-		BundleParser.PreParseBundles();
+		// BundleParser.PreParseBundles();
 		ModRegistry.Register(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION, RequirementScope.Everyone, VersionStrictness.Exact, () => BundleParser.loadedModRecords);
 	}
 	public static void LogInfo(object data) => Log.LogInfo(data);
@@ -51,7 +51,7 @@ public class Main
 	[HarmonyPatch(typeof(SceneManager), nameof(SceneManager.LoadSceneAsync), [typeof(string), typeof(LoadSceneMode)])]
 	public static void LoadSceneAsync(string sceneName, ref AsyncOperation __result, ref bool __runOriginal)
 	{
-		if (BundleParser.modTrackPlaceIDs.ContainsKey(sceneName))
+		if (sceneName != "Labo" && BundleParser.modTrackPlaceIDs.ContainsKey(sceneName))
 		{
 			__runOriginal = false;
 			__result = Addressables.LoadSceneAsync(sceneName, LoadSceneMode.Additive, activateOnLoad: false).WaitForCompletion().m_Operation;
